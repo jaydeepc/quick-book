@@ -40,4 +40,9 @@ npm run dev
 
 ## Deploy
 
-Deployed on Vercel: https://quick-block.vercel.app
+Deployed on Vercel: https://quickblock.vercel.app
+(`quick-block.vercel.app` was already owned by another Vercel user, so the
+hyphen-less name is used; `quick-block-alpha.vercel.app` also works.)
+
+> **Note:** MongoDB Atlas must allow connections from Vercel — in Atlas go to
+> **Network Access → Add IP Address → Allow access from anywhere (0.0.0.0/0)**.
