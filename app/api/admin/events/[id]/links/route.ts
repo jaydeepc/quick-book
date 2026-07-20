@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { customAlphabet } from "nanoid";
 import { collections } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
-
-const linkToken = customAlphabet(
-  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789",
-  12
-);
+import { linkToken } from "@/lib/slotInput";
 
 export async function POST(
   req: NextRequest,

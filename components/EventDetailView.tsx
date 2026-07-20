@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { EventDetail } from "@/lib/types";
 import { fmtDate, fmtRange } from "@/lib/dates";
+import AddSlotsEditor from "./AddSlotsEditor";
 import CopyButton from "./CopyButton";
 import {
   CalendarIcon,
@@ -26,6 +27,8 @@ export default function EventDetailView({ detail }: { detail: EventDetail }) {
   const [addingLink, setAddingLink] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [editingSlots, setEditingSlots] = useState(false);
+  const [savedNote, setSavedNote] = useState("");
 
   useEffect(() => setOrigin(window.location.origin), []);
 
@@ -147,8 +150,39 @@ export default function EventDetailView({ detail }: { detail: EventDetail }) {
             {detail.responses.length}{" "}
             {detail.responses.length === 1 ? "response" : "responses"}
           </span>
+          {!editingSlots && (
+            <button
+              type="button"
+              onClick={() => {
+                setSavedNote("");
+                setEditingSlots(true);
+              }}
+              className="flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-1.5 text-white shadow-card transition hover:bg-ink/90 active:scale-95"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Add dates / times
+            </button>
+          )}
         </div>
+        {savedNote && (
+          <p className="qb-pop-in mt-2 text-xs font-bold text-emerald-600">{savedNote}</p>
+        )}
       </div>
+
+      {editingSlots && (
+        <AddSlotsEditor
+          eventId={detail.id}
+          slots={detail.slots}
+          onClose={() => setEditingSlots(false)}
+          onSaved={(added) => {
+            setEditingSlots(false);
+            setSavedNote(
+              `Added ${added} new slot${added === 1 ? "" : "s"} — all share links now show them.`
+            );
+            router.refresh();
+          }}
+        />
+      )}
 
       {/* Share links */}
       <section className="rounded-3xl bg-white p-5 shadow-card">

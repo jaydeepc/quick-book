@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { customAlphabet } from "nanoid";
 import { collections } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { invalidSlotInput, slotId, linkToken } from "@/lib/slotInput";
 import type { Slot } from "@/lib/types";
-
-const slotId = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 10);
-const linkToken = customAlphabet(
-  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789",
-  12
-);
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{2}:\d{2}$/;
 
 export async function POST(req: NextRequest) {
   if (!(await isAdmin())) {
@@ -43,16 +34,9 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  for (const s of rawSlots) {
-    if (!DATE_RE.test(s.date) || !TIME_RE.test(s.start) || !TIME_RE.test(s.end)) {
-      return NextResponse.json({ error: "Invalid slot format" }, { status: 400 });
-    }
-    if (s.end <= s.start) {
-      return NextResponse.json(
-        { error: `End time must be after start time (${s.date})` },
-        { status: 400 }
-      );
-    }
+  const invalid = invalidSlotInput(rawSlots);
+  if (invalid) {
+    return NextResponse.json({ error: invalid }, { status: 400 });
   }
 
   const slots: Slot[] = rawSlots
