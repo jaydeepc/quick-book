@@ -6,16 +6,30 @@ import BookingClient from "@/components/BookingClient";
 export const dynamic = "force-dynamic";
 
 async function loadPublicEvent(token: string): Promise<PublicEvent | null> {
-  const { events, links } = await collections();
+  const { events, links, responses } = await collections();
   const link = await links.findOne({ token });
   if (!link) return null;
   const event = await events.findOne({ _id: link.eventId });
   if (!event) return null;
+
+  // A slot belongs to whoever booked it first, across every share link.
+  const eventResponses = await responses
+    .find({ eventId: link.eventId })
+    .sort({ _id: 1 })
+    .toArray();
+  const taken: Record<string, string> = {};
+  for (const r of eventResponses) {
+    for (const id of r.slotIds) {
+      if (!(id in taken)) taken[id] = r.name;
+    }
+  }
+
   return {
     name: event.name,
     note: event.note,
     linkLabel: link.label,
     slots: event.slots,
+    taken,
   };
 }
 

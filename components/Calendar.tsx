@@ -14,6 +14,8 @@ type Props = {
   isMarked?: (key: string) => boolean;
   /** Ring highlight (date currently being viewed). */
   activeKey?: string | null;
+  /** Muted strike-through style (e.g. every slot on this date is booked). */
+  isDimmed?: (key: string) => boolean;
   onTap: (key: string) => void;
   /** Small count badge under a date (e.g. number of time slots picked). */
   badge?: (key: string) => number;
@@ -25,6 +27,7 @@ export default function Calendar({
   isSelected,
   isMarked,
   activeKey,
+  isDimmed,
   onTap,
   badge,
 }: Props) {
@@ -78,6 +81,7 @@ export default function Calendar({
           const enabled = isEnabled(key);
           const selected = isSelected(key);
           const marked = !selected && isMarked?.(key);
+          const dimmed = !selected && !marked && isDimmed?.(key);
           const active = activeKey === key;
           const isToday = key === today;
           const count = badge?.(key) ?? 0;
@@ -88,6 +92,8 @@ export default function Calendar({
             cls += "bg-brand font-bold text-white shadow-pop ";
           } else if (marked) {
             cls += "bg-brand-soft font-bold text-brand-deep ";
+          } else if (dimmed) {
+            cls += "font-semibold text-ink-faint line-through decoration-2 decoration-ink-faint/50 hover:bg-line/40 ";
           } else if (enabled) {
             cls += "font-semibold text-ink hover:bg-brand-soft ";
           } else {

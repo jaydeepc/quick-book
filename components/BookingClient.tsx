@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import type { PublicEvent, Slot } from "@/lib/types";
 import Calendar from "./Calendar";
 import { fmtDate, fmtRange } from "@/lib/dates";
-import { CheckIcon, ClockIcon, UsersIcon, XIcon } from "./icons";
+import { CheckIcon, ClockIcon, LockIcon, UsersIcon, XIcon } from "./icons";
 
 export default function BookingClient({
   event,
@@ -14,6 +15,7 @@ export default function BookingClient({
   event: PublicEvent;
   token: string;
 }) {
+  const router = useRouter();
   const availableDates = useMemo(
     () => [...new Set(event.slots.map((s) => s.date))].sort(),
     [event.slots]
@@ -56,7 +58,11 @@ export default function BookingClient({
     return map;
   }, [selectedSlots]);
 
+  const hasFreeSlot = (date: string) =>
+    (slotsByDate.get(date) ?? []).some((s) => !event.taken[s.id]);
+
   function toggleSlot(id: string) {
+    if (event.taken[id]) return;
     setError("");
     setSelected((prev) => {
       const next = new Set(prev);
@@ -86,6 +92,27 @@ export default function BookingClient({
     if (res.ok) {
       setDone(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (res.status === 409) {
+      // Someone else grabbed one of the chosen slots first.
+      const data = await res.json().catch(() => ({}));
+      const conflictIds: string[] = Array.isArray(data.conflicts) ? data.conflicts : [];
+      const labels = conflictIds
+        .map((id) => event.slots.find((s) => s.id === id))
+        .filter((s): s is Slot => Boolean(s))
+        .map((s) => `${fmtDate(s.date)} ${fmtRange(s.start, s.end)}`)
+        .join(", ");
+      setSelected((prev) => {
+        const next = new Set(prev);
+        conflictIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setError(
+        labels
+          ? `Just taken by someone else: ${labels}. Pick another time.`
+          : "One of your times was just taken. Pick another."
+      );
+      router.refresh();
+      setBusy(false);
     } else {
       const data = await res.json().catch(() => ({}));
       setError(data.error || "Couldn't send. Please try again.");
@@ -151,8 +178,8 @@ export default function BookingClient({
               <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">{event.note}</p>
             )}
             <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-ink-soft">
-              <ClockIcon className="h-3.5 w-3.5 text-brand" />
-              Tap a date, pick every time that works. You can choose more than one.
+              <ClockIcon className="h-3.5 w-3.5 shrink-0 text-brand" />
+              Tap a date, pick your times — first come, first served.
             </p>
           </div>
         </div>
@@ -161,7 +188,8 @@ export default function BookingClient({
           <Calendar
             initialMonth={availableDates[0]}
             isEnabled={(k) => slotsByDate.has(k)}
-            isMarked={(k) => slotsByDate.has(k)}
+            isMarked={(k) => hasFreeSlot(k)}
+            isDimmed={(k) => slotsByDate.has(k) && !hasFreeSlot(k)}
             isSelected={(k) => (selectedCountByDate.get(k) ?? 0) > 0}
             activeKey={activeDate}
             onTap={setActiveDate}
@@ -174,13 +202,30 @@ export default function BookingClient({
             <p className="text-sm font-extrabold text-ink">{fmtDate(activeDate, true)}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {activeSlots.map((s) => {
+                const owner = event.taken[s.id];
                 const on = selected.has(s.id);
+                if (owner) {
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex h-14 flex-col items-center justify-center rounded-2xl bg-line/40 text-ink-faint ring-1 ring-line"
+                    >
+                      <span className="flex items-center gap-1 text-[12px] font-bold line-through decoration-ink-faint/50">
+                        <LockIcon className="h-3 w-3 shrink-0" />
+                        {fmtRange(s.start, s.end)}
+                      </span>
+                      <span className="mt-0.5 max-w-full truncate px-2 text-[10px] font-bold text-ink-soft">
+                        {owner}
+                      </span>
+                    </div>
+                  );
+                }
                 return (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => toggleSlot(s.id)}
-                    className={`flex h-12 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-bold transition active:scale-95 ${
+                    className={`flex h-14 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-bold transition active:scale-95 ${
                       on
                         ? "bg-brand text-white shadow-pop"
                         : "bg-cream text-ink ring-1 ring-line hover:ring-brand/50"
@@ -192,6 +237,11 @@ export default function BookingClient({
                 );
               })}
             </div>
+            {activeSlots.some((s) => event.taken[s.id]) && (
+              <p className="mt-2.5 text-[11px] font-semibold text-ink-faint">
+                Locked times are already booked — the name shows who got there first.
+              </p>
+            )}
           </div>
         )}
 

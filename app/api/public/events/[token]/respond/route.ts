@@ -42,13 +42,44 @@ export async function POST(
     return NextResponse.json({ error: "Pick at least one time" }, { status: 400 });
   }
 
-  await responses.insertOne({
+  // A slot belongs to whoever books it first (across all share links).
+  const alreadyClaimed = await responses
+    .find({ eventId: link.eventId, slotIds: { $in: chosen } })
+    .toArray();
+  const claimedIds = new Set(alreadyClaimed.flatMap((r) => r.slotIds));
+  const conflicts = chosen.filter((id) => claimedIds.has(id));
+  if (conflicts.length > 0) {
+    return NextResponse.json(
+      { error: "Some of those times were just taken", conflicts },
+      { status: 409 }
+    );
+  }
+
+  const inserted = await responses.insertOne({
     eventId: link.eventId,
     linkId: link._id!,
     name,
     slotIds: chosen,
     createdAt: new Date(),
   });
+
+  // Settle simultaneous submissions: for each slot the earliest response (by
+  // _id) wins. If we lost any slot, withdraw our response entirely.
+  const contenders = await responses
+    .find({ eventId: link.eventId, slotIds: { $in: chosen } })
+    .sort({ _id: 1 })
+    .toArray();
+  const lost = chosen.filter((id) => {
+    const winner = contenders.find((r) => r.slotIds.includes(id));
+    return winner && !winner._id!.equals(inserted.insertedId);
+  });
+  if (lost.length > 0) {
+    await responses.deleteOne({ _id: inserted.insertedId });
+    return NextResponse.json(
+      { error: "Someone booked one of your times a moment before you", conflicts: lost },
+      { status: 409 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

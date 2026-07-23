@@ -77,4 +77,6 @@ export type PublicEvent = {
   note?: string;
   linkLabel: string;
   slots: Slot[];
+  /** slotId -> name of whoever booked it first; a booked slot is locked for everyone else. */
+  taken: Record<string, string>;
 };
