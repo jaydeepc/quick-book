@@ -208,14 +208,14 @@ export default function BookingClient({
                   return (
                     <div
                       key={s.id}
-                      className="flex h-14 flex-col items-center justify-center rounded-2xl bg-line/40 text-ink-faint ring-1 ring-line"
+                      className="flex h-14 flex-col items-center justify-center rounded-2xl bg-ink-soft text-white"
                     >
-                      <span className="flex items-center gap-1 text-[12px] font-bold line-through decoration-ink-faint/50">
+                      <span className="flex items-center gap-1 text-[12px] font-bold line-through decoration-white/60">
                         <LockIcon className="h-3 w-3 shrink-0" />
                         {fmtRange(s.start, s.end)}
                       </span>
-                      <span className="mt-0.5 max-w-full truncate px-2 text-[10px] font-bold text-ink-soft">
-                        {owner}
+                      <span className="mt-0.5 max-w-full truncate px-2 text-[10px] font-bold text-white/85">
+                        Taken · {owner}
                       </span>
                     </div>
                   );

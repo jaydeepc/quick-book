@@ -142,6 +142,15 @@ export function SparkleIcon({ className }: IconProps) {
   );
 }
 
+export function PencilIcon({ className }: IconProps) {
+  return (
+    <svg {...base(className)}>
+      <path d="M4 20l4.5-1L20 7.5a2.1 2.1 0 0 0-3-3L5.5 16 4 20z" />
+      <path d="M14.5 6.5l3 3" />
+    </svg>
+  );
+}
+
 export function RefreshIcon({ className }: IconProps) {
   return (
     <svg {...base(className)}>

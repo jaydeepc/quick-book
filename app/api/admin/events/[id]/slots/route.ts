@@ -21,48 +21,72 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  let body: { slots?: RawSlot[] };
+  let body: { add?: RawSlot[]; removeIds?: string[] };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
 
-  const rawSlots = Array.isArray(body.slots) ? body.slots : [];
-  if (rawSlots.length === 0) {
-    return NextResponse.json({ error: "Nothing to add" }, { status: 400 });
+  const rawAdds = Array.isArray(body.add) ? body.add : [];
+  const rawRemoveIds = Array.isArray(body.removeIds)
+    ? body.removeIds.filter((r) => typeof r === "string")
+    : [];
+  if (rawAdds.length === 0 && rawRemoveIds.length === 0) {
+    return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
   }
-  const invalid = invalidSlotInput(rawSlots);
+  const invalid = invalidSlotInput(rawAdds);
   if (invalid) {
     return NextResponse.json({ error: invalid }, { status: 400 });
   }
 
-  const { events } = await collections();
+  const { events, responses } = await collections();
   const event = await events.findOne({ _id: eventId });
   if (!event) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Skip anything already offered (same date + start + end), and payload dupes.
-  const seen = new Set(event.slots.map((s) => `${s.date}|${s.start}|${s.end}`));
+  const existingIds = new Set(event.slots.map((s) => s.id));
+  const removeIds = rawRemoveIds.filter((r) => existingIds.has(r));
+  const kept = event.slots.filter((s) => !removeIds.includes(s.id));
+
+  // Skip adds that duplicate a kept slot (same date + start + end) or each other.
+  const seen = new Set(kept.map((s) => `${s.date}|${s.start}|${s.end}`));
   const fresh: Slot[] = [];
-  for (const s of rawSlots) {
+  for (const s of rawAdds) {
     const key = `${s.date}|${s.start}|${s.end}`;
     if (seen.has(key)) continue;
     seen.add(key);
     fresh.push({ id: slotId(), date: s.date, start: s.start, end: s.end });
   }
-  if (fresh.length === 0) {
+
+  if (fresh.length === 0 && removeIds.length === 0) {
     return NextResponse.json(
       { error: "Those dates & times are already offered" },
       { status: 400 }
     );
   }
 
-  const merged = [...event.slots, ...fresh].sort((a, b) =>
+  const merged = [...kept, ...fresh].sort((a, b) =>
     a.date === b.date ? a.start.localeCompare(b.start) : a.date.localeCompare(b.date)
   );
+  if (merged.length === 0) {
+    return NextResponse.json(
+      { error: "An event needs at least one slot — delete the event instead" },
+      { status: 400 }
+    );
+  }
+
   await events.updateOne({ _id: eventId }, { $set: { slots: merged } });
 
-  return NextResponse.json({ added: fresh.length });
+  // Bookings on removed slots are cancelled; responses left with no slots go away.
+  if (removeIds.length > 0) {
+    await responses.updateMany(
+      { eventId },
+      { $pull: { slotIds: { $in: removeIds } } }
+    );
+    await responses.deleteMany({ eventId, slotIds: { $size: 0 } });
+  }
+
+  return NextResponse.json({ added: fresh.length, removed: removeIds.length });
 }

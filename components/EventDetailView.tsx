@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { EventDetail } from "@/lib/types";
 import { fmtDate, fmtRange } from "@/lib/dates";
-import AddSlotsEditor from "./AddSlotsEditor";
+import SlotsEditor from "./SlotsEditor";
 import CopyButton from "./CopyButton";
 import {
   CalendarIcon,
@@ -13,6 +13,7 @@ import {
   ClockIcon,
   DownloadIcon,
   LinkIcon,
+  PencilIcon,
   PlusIcon,
   RefreshIcon,
   TrashIcon,
@@ -58,6 +59,20 @@ export default function EventDetailView({ detail }: { detail: EventDetail }) {
 
   const maxVotes = ranked[0]?.names.length ?? 0;
   const dateCount = new Set(detail.slots.map((s) => s.date)).size;
+
+  // First booker per slot (earliest response wins) — powers removal warnings.
+  const bookedBy = useMemo(() => {
+    const map: Record<string, string> = {};
+    const ordered = [...detail.responses].sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt)
+    );
+    for (const r of ordered) {
+      for (const id of r.slotIds) {
+        if (!(id in map)) map[id] = r.name;
+      }
+    }
+    return map;
+  }, [detail.responses]);
 
   async function addLink() {
     const label = newLabel.trim();
@@ -159,8 +174,8 @@ export default function EventDetailView({ detail }: { detail: EventDetail }) {
               }}
               className="flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-1.5 text-white shadow-card transition hover:bg-ink/90 active:scale-95"
             >
-              <PlusIcon className="h-3.5 w-3.5" />
-              Add dates / times
+              <PencilIcon className="h-3.5 w-3.5" />
+              Edit dates / times
             </button>
           )}
         </div>
@@ -170,15 +185,18 @@ export default function EventDetailView({ detail }: { detail: EventDetail }) {
       </div>
 
       {editingSlots && (
-        <AddSlotsEditor
+        <SlotsEditor
           eventId={detail.id}
           slots={detail.slots}
+          bookedBy={bookedBy}
           onClose={() => setEditingSlots(false)}
-          onSaved={(added) => {
+          onSaved={(added, removed) => {
             setEditingSlots(false);
-            setSavedNote(
-              `Added ${added} new slot${added === 1 ? "" : "s"} — all share links now show them.`
-            );
+            const parts = [
+              added > 0 ? `${added} slot${added === 1 ? "" : "s"} added` : null,
+              removed > 0 ? `${removed} removed` : null,
+            ].filter(Boolean);
+            setSavedNote(`Saved — ${parts.join(", ")}. All share links are up to date.`);
             router.refresh();
           }}
         />

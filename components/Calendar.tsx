@@ -93,7 +93,7 @@ export default function Calendar({
           } else if (marked) {
             cls += "bg-brand-soft font-bold text-brand-deep ";
           } else if (dimmed) {
-            cls += "font-semibold text-ink-faint line-through decoration-2 decoration-ink-faint/50 hover:bg-line/40 ";
+            cls += "bg-ink-soft/25 font-bold text-ink-soft line-through decoration-2 decoration-ink-soft/60 hover:bg-ink-soft/35 ";
           } else if (enabled) {
             cls += "font-semibold text-ink hover:bg-brand-soft ";
           } else {
